@@ -44,6 +44,7 @@ pub enum Input {
         url: String,
         metadata: ProtoMetadata,
         connect_rpc: Option<bool>,
+        proto_paths: Option<Vec<String>>,
     },
     Config {
         schema: String,
@@ -85,11 +86,13 @@ impl Generator {
     }
 
     /// Generates the configuration from the provided protobuf.
+    #[allow(clippy::too_many_arguments)]
     fn generate_from_proto(
         &self,
         metadata: &ProtoMetadata,
         operation_name: &str,
         url: &str,
+        proto_paths: &Option<Vec<String>>,
     ) -> anyhow::Result<Config> {
         let descriptor_set = resolve_file_descriptor_set(metadata.descriptor_set.clone())?;
         let mut config = from_proto(&[descriptor_set], operation_name, url)?;
@@ -99,7 +102,7 @@ impl Generator {
             type_of: LinkType::Protobuf,
             headers: None,
             meta: None,
-            proto_paths: None,
+            proto_paths: proto_paths.to_owned(),
         });
         Ok(config)
     }
@@ -136,8 +139,9 @@ impl Generator {
                     config = config
                         .merge_right(self.generate_from_json(&type_name_generator, &[req_sample])?);
                 }
-                Input::Proto { metadata, url, connect_rpc } => {
-                    let proto_config = self.generate_from_proto(metadata, &self.query, url)?;
+                Input::Proto { metadata, url, connect_rpc, proto_paths } => {
+                    let proto_config =
+                        self.generate_from_proto(metadata, &self.query, url, proto_paths)?;
                     let proto_config = if connect_rpc == &Some(true) {
                         ConnectRPC.transform(proto_config).to_result()?
                     } else {
@@ -273,6 +277,7 @@ pub mod test {
                 },
                 url: "http://localhost:50051".to_string(),
                 connect_rpc: None,
+                proto_paths: None,
             }])
             .generate(false)?;
 
@@ -327,6 +332,7 @@ pub mod test {
             },
             url: "http://localhost:50051".to_string(),
             connect_rpc: None,
+            proto_paths: None,
         };
 
         // Config input

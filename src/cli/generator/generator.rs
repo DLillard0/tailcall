@@ -143,7 +143,18 @@ impl Generator {
                     if let Some(relative_path_to_proto) = to_relative_path(output_dir, &path) {
                         metadata.path = relative_path_to_proto;
                     }
-                    input_samples.push(Input::Proto { metadata, url, connect_rpc });
+                    let relative_proto_paths = proto_paths.map(|paths| {
+                        paths
+                            .iter()
+                            .filter_map(|p| to_relative_path(output_dir, p))
+                            .collect::<Vec<_>>()
+                    });
+                    input_samples.push(Input::Proto {
+                        metadata,
+                        url,
+                        connect_rpc,
+                        proto_paths: relative_proto_paths,
+                    });
                 }
                 Source::Config { src } => {
                     let path = src.0;

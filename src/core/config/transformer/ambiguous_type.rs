@@ -253,6 +253,7 @@ mod tests {
                 metadata: ProtoMetadata { descriptor_set: set, path: news_proto.to_string() },
                 url,
                 connect_rpc: None,
+                proto_paths: None,
             }])
             .generate(false)?;
 
