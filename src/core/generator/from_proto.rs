@@ -14,7 +14,7 @@ use super::proto::comments_builder::CommentsBuilder;
 use super::proto::path_builder::PathBuilder;
 use super::proto::path_field::PathField;
 use crate::core::config::transformer::{AmbiguousType, TreeShake};
-use crate::core::config::{self, Arg, Config, Enum, Field, Grpc, Resolver, Union, Variant};
+use crate::core::config::{self, Arg, Config, Enum, Field, Grpc, KeyValue, Resolver, Union, Variant};
 use crate::core::transform::{Transform, TransformerOps};
 use crate::core::Type;
 
@@ -328,6 +328,7 @@ impl Context {
         services: &[ServiceDescriptorProto],
         parent_path: &PathBuilder,
         url: &str,
+        headers: &Option<Vec<KeyValue>>,
     ) -> Result<Self> {
         if services.is_empty() {
             return Ok(self);
@@ -371,7 +372,7 @@ impl Context {
                     url: url.to_string(),
                     body,
                     batch_key: vec![],
-                    headers: vec![],
+                    headers: headers.to_owned().unwrap_or_default(),
                     method: field_name.id(),
                     dedupe: None,
                     select: None,
@@ -457,7 +458,7 @@ fn get_input_type(input_ty: &str) -> Result<Option<GraphQLType<Unparsed>>> {
 }
 
 /// The main entry point that builds a Config object from proto descriptor sets.
-pub fn from_proto(descriptor_sets: &[FileDescriptorSet], query: &str, url: &str) -> Result<Config> {
+pub fn from_proto(descriptor_sets: &[FileDescriptorSet], query: &str, url: &str, headers: &Option<Vec<KeyValue>>) -> Result<Config> {
     let mut ctx = Context::new(query);
     for descriptor_set in descriptor_sets.iter() {
         for file_descriptor in descriptor_set.file.iter() {
@@ -472,7 +473,7 @@ pub fn from_proto(descriptor_sets: &[FileDescriptorSet], query: &str, url: &str)
             ctx = ctx
                 .append_enums(&file_descriptor.enum_type, &root_path, false)
                 .append_msg_type(&file_descriptor.message_type, &root_path, false)?
-                .append_query_service(&file_descriptor.service, &root_path, url)?;
+                .append_query_service(&file_descriptor.service, &root_path, url, headers)?;
         }
     }
 
@@ -500,7 +501,7 @@ mod test {
     macro_rules! assert_gen {
         ($( $set:expr ), +) => {
             let set = compile_protobuf(&[$( $set ),+]).unwrap();
-            let config = from_proto(&[set], "Query", "http://localhost:50051").unwrap();
+            let config = from_proto(&[set], "Query", "http://localhost:50051", &None).unwrap();
             let config_module = ConfigModule::from(config);
             let result = config_module.to_sdl();
             insta::assert_snapshot!(result);
@@ -546,8 +547,8 @@ mod test {
         let set3 = compile_protobuf(&[protobuf::GREETINGS_B])?;
         let url = "http://localhost:50051";
 
-        let actual = from_proto(&[set.clone()], "Query", url)?.to_sdl();
-        let expected = from_proto(&[set1, set2, set3], "Query", url)?.to_sdl();
+        let actual = from_proto(&[set.clone()], "Query", url, &None)?.to_sdl();
+        let expected = from_proto(&[set1, set2, set3], "Query", url, &None)?.to_sdl();
 
         pretty_assertions::assert_eq!(actual, expected);
         Ok(())

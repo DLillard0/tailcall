@@ -10,7 +10,7 @@ use url::Url;
 use super::from_proto::from_proto;
 use super::proto::connect_rpc::ConnectRPC;
 use super::{FromJsonGenerator, NameGenerator, RequestSample, PREFIX};
-use crate::core::config::{self, Config, ConfigModule, Link, LinkType};
+use crate::core::config::{self, Config, ConfigModule, KeyValue, Link, LinkType};
 use crate::core::http::Method;
 use crate::core::merge_right::MergeRight;
 use crate::core::proto_reader::ProtoMetadata;
@@ -45,6 +45,7 @@ pub enum Input {
         metadata: ProtoMetadata,
         connect_rpc: Option<bool>,
         proto_paths: Option<Vec<String>>,
+        headers: Option<Vec<KeyValue>>,
     },
     Config {
         schema: String,
@@ -93,9 +94,10 @@ impl Generator {
         operation_name: &str,
         url: &str,
         proto_paths: &Option<Vec<String>>,
+        headers: &Option<Vec<KeyValue>>,
     ) -> anyhow::Result<Config> {
         let descriptor_set = resolve_file_descriptor_set(metadata.descriptor_set.clone())?;
-        let mut config = from_proto(&[descriptor_set], operation_name, url)?;
+        let mut config = from_proto(&[descriptor_set], operation_name, url, headers)?;
         config.links.push(Link {
             id: None,
             src: metadata.path.to_owned(),
@@ -139,9 +141,9 @@ impl Generator {
                     config = config
                         .merge_right(self.generate_from_json(&type_name_generator, &[req_sample])?);
                 }
-                Input::Proto { metadata, url, connect_rpc, proto_paths } => {
+                Input::Proto { metadata, url, connect_rpc, proto_paths, headers } => {
                     let proto_config =
-                        self.generate_from_proto(metadata, &self.query, url, proto_paths)?;
+                        self.generate_from_proto(metadata, &self.query, url, proto_paths, headers)?;
                     let proto_config = if connect_rpc == &Some(true) {
                         ConnectRPC.transform(proto_config).to_result()?
                     } else {
@@ -278,6 +280,7 @@ pub mod test {
                 url: "http://localhost:50051".to_string(),
                 connect_rpc: None,
                 proto_paths: None,
+                headers: None,
             }])
             .generate(false)?;
 
@@ -333,6 +336,7 @@ pub mod test {
             url: "http://localhost:50051".to_string(),
             connect_rpc: None,
             proto_paths: None,
+            headers: None,
         };
 
         // Config input

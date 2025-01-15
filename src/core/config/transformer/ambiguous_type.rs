@@ -254,6 +254,7 @@ mod tests {
                 url,
                 connect_rpc: None,
                 proto_paths: None,
+                headers: None,
             }])
             .generate(false)?;
 

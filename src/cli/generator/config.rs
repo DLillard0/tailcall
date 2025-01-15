@@ -11,6 +11,7 @@ use tailcall_valid::{Valid, ValidateFrom, Validator};
 use url::Url;
 
 use crate::core::config::transformer::Preset;
+use crate::core::config::KeyValue;
 use crate::core::http::Method;
 
 #[derive(Deserialize, Serialize, Debug, Default, Setters)]
@@ -89,6 +90,8 @@ pub enum Source<Status = UnResolved> {
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(rename = "connectRPC")]
         connect_rpc: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        headers: Option<Vec<KeyValue>>,
     },
     Config {
         src: Location<Status>,
@@ -217,7 +220,7 @@ impl Source<UnResolved> {
                     is_mutation,
                 })
             }
-            Source::Proto { src, url, proto_paths, connect_rpc } => {
+            Source::Proto { src, url, proto_paths, connect_rpc, headers } => {
                 let resolved_path = src.into_resolved(parent_dir);
                 let resolved_proto_paths = proto_paths.map(|paths| {
                     paths
@@ -230,6 +233,7 @@ impl Source<UnResolved> {
                     url,
                     proto_paths: resolved_proto_paths,
                     connect_rpc,
+                    headers,
                 })
             }
             Source::Config { src } => {

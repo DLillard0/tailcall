@@ -135,7 +135,7 @@ impl Generator {
                         headers: headers.into_btree_map(),
                     });
                 }
-                Source::Proto { src, url, proto_paths, connect_rpc } => {
+                Source::Proto { src, url, proto_paths, connect_rpc, headers } => {
                     let path = src.0;
                     let proto_paths =
                         proto_paths.map(|paths| paths.into_iter().map(|l| l.0).collect::<Vec<_>>());
@@ -154,6 +154,7 @@ impl Generator {
                         url,
                         connect_rpc,
                         proto_paths: relative_proto_paths,
+                        headers
                     });
                 }
                 Source::Config { src } => {
