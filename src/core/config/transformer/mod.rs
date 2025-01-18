@@ -9,8 +9,10 @@ mod required;
 mod subgraph;
 mod tree_shake;
 mod union_input_type;
+mod check_method_type;
 
 pub use ambiguous_type::{AmbiguousType, Resolution};
+pub use check_method_type::CheckMethodType;
 pub use flatten_single_field::FlattenSingleField;
 pub use improve_type_names::ImproveTypeNames;
 pub use merge_types::TypeMerger;
