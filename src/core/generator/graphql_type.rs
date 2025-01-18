@@ -2,8 +2,6 @@ use std::fmt::Display;
 
 use convert_case::{Case, Casing};
 
-use super::PREFIX;
-use crate::core::scalar::Scalar;
 pub(super) static DEFAULT_SEPARATOR: &str = "__";
 static PACKAGE_SEPARATOR: &str = ".";
 
@@ -155,22 +153,16 @@ impl Display for GraphQLType<Parsed> {
             Entity::EnumVariant => f.write_str(parsed.name.as_str())?,
             Entity::Field => f.write_str(parsed.name.to_case(Case::Camel).as_str())?,
             Entity::Method => {
-                f.write_str(PREFIX)?;
-                if !parsed.namespace.is_empty() {
-                    f.write_str(parsed.namespace.to_string().as_str())?;
-                    f.write_str(DEFAULT_SEPARATOR)?;
-                };
-                f.write_str(parsed.name.as_str())?
+                let last_namespace = parsed.namespace.0.last();
+                f.write_str(parsed.name.to_case(Case::Camel).as_str())?;
+                if let Some(last_namespace) = last_namespace {
+                    // let last_namespace = last_namespace
+                    //     .strip_suffix("Service")
+                    //     .unwrap_or(last_namespace);
+                    f.write_str(last_namespace.to_case(Case::UpperCamel).as_str())?;
+                }
             }
             Entity::Enum | Entity::ObjectType => {
-                // if output type is scalar, then skip the prefix.
-                if !Scalar::is_predefined(&parsed.name) {
-                    f.write_str(PREFIX)?;
-                }
-                if !parsed.namespace.is_empty() {
-                    f.write_str(parsed.namespace.to_string().as_str())?;
-                    f.write_str(DEFAULT_SEPARATOR)?;
-                };
                 f.write_str(parsed.name.as_str())?
             }
         };
@@ -181,6 +173,8 @@ impl Display for GraphQLType<Parsed> {
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+
+    use crate::core::generator::PREFIX;
 
     use super::*;
 
