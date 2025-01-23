@@ -1,4 +1,5 @@
 use std::fs;
+use std::ops::Deref;
 use std::path::Path;
 
 use anyhow::anyhow;
@@ -7,16 +8,18 @@ use inquire::Confirm;
 use pathdiff::diff_paths;
 use tailcall_valid::{ValidateInto, Validator};
 
-use super::config::{Config, LLMConfig, Resolved, Source};
+use super::config::{Config, LLMConfig, Resolved, SDLConfig, Source};
 use super::source::ConfigSource;
 use crate::cli::llm::InferTypeName;
+use crate::core::blueprint::{compile_service, Blueprint};
 use crate::core::config::transformer::{Preset, RenameTypes};
 use crate::core::config::{self, ConfigModule, ConfigReaderContext};
 use crate::core::generator::{Generator as ConfigGenerator, Input};
+use crate::core::ir::model::IR;
 use crate::core::proto_reader::ProtoReader;
 use crate::core::resource_reader::{Resource, ResourceReader};
 use crate::core::runtime::TargetRuntime;
-use crate::core::{Mustache, Transform};
+use crate::core::{print_schema, Mustache, Transform};
 
 /// CLI that reads the the config file and generates the required tailcall
 /// configuration.
@@ -32,7 +35,12 @@ impl Generator {
     }
 
     /// Writes the configuration to the output file if allowed.
-    async fn write(self, graphql_config: &ConfigModule, output_path: &str) -> anyhow::Result<()> {
+    async fn write(
+        self,
+        graphql_config: &ConfigModule,
+        output_path: &str,
+        sdl_config: Option<SDLConfig<Resolved>>,
+    ) -> anyhow::Result<()> {
         let output_source = config::Source::detect(output_path)?;
         let config = match output_source {
             config::Source::GraphQL => graphql_config.to_sdl(),
@@ -46,6 +54,35 @@ impl Generator {
                 .await?;
 
             tracing::info!("Config successfully generated at {output_path}");
+        }
+
+        if let Some(SDLConfig { path, enable_federation }) = sdl_config {
+            let graphql_config = if let Some(true) = enable_federation {
+                let mut config = graphql_config.deref().clone();
+                config.server.enable_federation = enable_federation;
+                ConfigModule::from(config)
+            } else {
+                graphql_config.to_owned()
+            };
+
+            let blueprint = Blueprint::try_from(&graphql_config)?;
+            let schema = blueprint.to_schema();
+            let mut sdl = print_schema::print_schema(schema);
+
+            if let Some(true) = enable_federation {
+                let ir = compile_service(sdl).to_result()?;
+                sdl = match ir {
+                    IR::Service(sdl) => sdl,
+                    _ => unreachable!(),
+                };
+            };
+
+            let sdl_path = path.0;
+            if self.should_overwrite(&sdl_path)? {
+                self.runtime.file.write(&sdl_path, sdl.as_bytes()).await?;
+
+                tracing::info!("SDL successfully generated at {sdl_path}");
+            }
         }
 
         Ok(())
@@ -154,7 +191,7 @@ impl Generator {
                         url,
                         connect_rpc,
                         proto_paths: relative_proto_paths,
-                        headers
+                        headers,
                     });
                 }
                 Source::Config { src } => {
@@ -171,7 +208,8 @@ impl Generator {
 
     /// generates the final configuration.
     pub async fn generate(self) -> anyhow::Result<ConfigModule> {
-        let config = self.read().await?;
+        let mut config = self.read().await?;
+        let sdl_config = config.sdl.take();
         let path = config.output.path.0.to_owned();
         let query_type = config.schema.query.clone();
         let mutation_type_name = config.schema.mutation.clone();
@@ -203,7 +241,7 @@ impl Generator {
             }
         }
 
-        self.write(&config, &path).await?;
+        self.write(&config, &path, sdl_config).await?;
         Ok(config)
     }
 }

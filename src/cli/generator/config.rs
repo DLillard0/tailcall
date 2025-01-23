@@ -13,6 +13,7 @@ use url::Url;
 use crate::core::config::transformer::Preset;
 use crate::core::config::KeyValue;
 use crate::core::http::Method;
+use crate::core::is_default;
 
 #[derive(Deserialize, Serialize, Debug, Default, Setters)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +27,18 @@ pub struct Config<Status = UnResolved> {
     pub schema: Schema,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub llm: Option<LLMConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sdl: Option<SDLConfig<Status>>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct SDLConfig<Status = UnResolved> {
+    #[serde(skip_serializing_if = "Location::is_empty")]
+    pub path: Location<Status>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub enable_federation: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, PartialEq, Clone)]
@@ -206,6 +219,15 @@ impl Output<UnResolved> {
     }
 }
 
+impl SDLConfig<UnResolved> {
+    pub fn resolve(self, parent_dir: Option<&Path>) -> anyhow::Result<SDLConfig<Resolved>> {
+        Ok(SDLConfig {
+            path: self.path.into_resolved(parent_dir),
+            enable_federation: self.enable_federation,
+        })
+    }
+}
+
 impl Source<UnResolved> {
     pub fn resolve(self, parent_dir: Option<&Path>) -> anyhow::Result<Source<Resolved>> {
         match self {
@@ -268,12 +290,15 @@ impl Config {
             LLMConfig { model: llm.model, secret }
         });
 
+        let sdl = self.sdl.map(|sdl| sdl.resolve(parent_dir)).transpose()?;
+
         Ok(Config {
             inputs,
             output,
             schema: self.schema,
             preset: self.preset,
             llm,
+            sdl,
         })
     }
 }
@@ -397,7 +422,7 @@ mod tests {
     fn test_raise_error_unknown_field_at_root_level() {
         let json = r#"{"input": "value"}"#;
         let expected_error =
-            "unknown field `input`, expected one of `inputs`, `output`, `preset`, `schema`, `llm` at line 1 column 8";
+            "unknown field `input`, expected one of `inputs`, `output`, `preset`, `schema`, `llm`, `sdl` at line 1 column 8";
         assert_deserialization_error(json, expected_error);
     }
 
