@@ -21,6 +21,9 @@ impl Transform for ConnectRPC {
                         other => other.clone(),
                     })
                     .collect();
+                if field_.type_of.name() == "Timestamp" || field_.type_of.name() ==  "TimestampInput"{
+                    field_.type_of = field_.type_of.clone().with_name(String::from("String"));
+                }
 
                 field_.resolvers = ResolverSet(new_resolvers);
             }
