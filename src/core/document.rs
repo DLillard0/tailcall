@@ -101,7 +101,8 @@ fn print_pos_directives(directives: &[Positioned<ConstDirective>]) -> String {
 }
 
 fn print_schema(schema: &SchemaDefinition) -> String {
-    let directives = print_pos_directives(&schema.directives);
+    // remove the schema directive from the schema definition
+    // let directives = print_pos_directives(&schema.directives);
 
     let query = schema
         .query
@@ -119,8 +120,8 @@ fn print_schema(schema: &SchemaDefinition) -> String {
         return String::new();
     }
     format!(
-        "schema {}{{\n{}{}{}}}\n",
-        directives, query, mutation, subscription
+        "schema {{\n{}{}{}}}\n",
+        query, mutation, subscription
     )
 }
 
