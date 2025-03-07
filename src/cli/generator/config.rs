@@ -29,6 +29,7 @@ pub struct Config<Status = UnResolved> {
     pub llm: Option<LLMConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sdl: Option<SDLConfig<Status>>,
+    pub namespace: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default)]
@@ -299,6 +300,7 @@ impl Config {
             preset: self.preset,
             llm,
             sdl,
+            namespace: self.namespace,
         })
     }
 }

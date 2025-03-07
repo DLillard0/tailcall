@@ -10,6 +10,7 @@ mod subgraph;
 mod tree_shake;
 mod union_input_type;
 mod check_method_type;
+mod handle_namespaces;
 
 pub use ambiguous_type::{AmbiguousType, Resolution};
 pub use check_method_type::CheckMethodType;
@@ -23,3 +24,4 @@ pub use required::Required;
 pub use subgraph::Subgraph;
 pub use tree_shake::TreeShake;
 pub use union_input_type::UnionInputType;
+pub use handle_namespaces::HandleNamespaces;

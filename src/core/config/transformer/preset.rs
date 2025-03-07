@@ -39,6 +39,7 @@ impl Transform for Preset {
             .pipe(super::FlattenSingleField.when(self.unwrap_single_field_types))
             .pipe(super::ImproveTypeNames.when(self.infer_type_names))
             .pipe(super::CheckMethodType)
+            .pipe(super::HandleNamespaces)
             .transform(config)
     }
 }

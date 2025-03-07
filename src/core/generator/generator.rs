@@ -26,6 +26,7 @@ pub struct Generator {
     inputs: Vec<Input>,
     type_name_prefix: String,
     transformers: Vec<Box<dyn Transform<Value = Config, Error = String>>>,
+    namespace: Option<String>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -67,6 +68,7 @@ impl Generator {
             inputs: Vec::new(),
             type_name_prefix: PREFIX.into(),
             transformers: Default::default(),
+            namespace: None,
         }
     }
 
@@ -112,6 +114,8 @@ impl Generator {
     /// Generated the actual configuratio from provided samples.
     pub fn generate(&self, use_transformers: bool) -> anyhow::Result<ConfigModule> {
         let mut config: Config = Config::default();
+        config.namespace = self.namespace.clone();
+
         let type_name_generator = NameGenerator::new(&self.type_name_prefix);
 
         for input in self.inputs.iter() {

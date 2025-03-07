@@ -99,6 +99,8 @@ pub struct Config {
 
     /// Enable [opentelemetry](https://opentelemetry.io) support
     pub telemetry: Telemetry,
+
+    pub namespace: Option<String>,
 }
 
 ///
