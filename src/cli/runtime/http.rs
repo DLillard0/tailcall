@@ -1,3 +1,4 @@
+use std::fmt;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -176,12 +177,82 @@ impl HttpIO for NativeHttp {
             tracing::Span::current().set_attribute(status_code.key, status_code.value);
         }
 
-        Ok(Response::from_reqwest(
-            response?
-                .error_for_status()
-                .map_err(|err| err.without_url())?,
-        )
-        .await?)
+        // 分解处理步骤，避免多次使用 Response
+        let resp = response?; // 获取原始响应
+
+        // 先提取元数据（不会移动所有权）
+        let status = resp.status();
+        // let version = resp.version();
+        let headers = resp.headers().clone();
+
+        // 最后读取 body（会移动所有权）
+        let body_bytes = resp.bytes().await?;
+        let body_str = String::from_utf8_lossy(&body_bytes);
+
+        // 处理 connect rpc HTTP 协议请求错误 FIXME 后续需要抽出来单独为 connect rpc 实现
+        if !status.is_success() {
+            // 读取响应体并解析为JSON
+            let json_body: serde_json::Value = serde_json::from_str(&body_str)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+            let code = json_body.get("code")
+                .and_then(|v| v.as_str()).unwrap();
+
+            let message = json_body.get("message")
+                .and_then(|v| v.as_str()).unwrap();
+
+            return Err(ApiError::BusinessError {
+                code: code.to_string(),
+                body: body_str.to_string(),
+                message: message.to_string(),
+            }.into());
+        }
+
+        let resp = Response{
+            status,
+            headers,
+            body: body_bytes,
+        };
+        tracing::debug!("response: {:?}", resp);
+        Ok(resp)
+    }
+}
+
+// 完善错误类型
+#[derive(Debug,thiserror::Error)]
+enum ApiError {
+    BusinessError {
+        code: String,
+        message: String,
+        body: String,
+    },
+    Utf8Error(std::string::FromUtf8Error),
+    ReqwestError(reqwest::Error),
+}
+
+// 实现必要的From trait
+impl From<reqwest::Error> for ApiError {
+    fn from(value: reqwest::Error) -> Self {
+        ApiError::ReqwestError(value)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for ApiError {
+    fn from(value: std::string::FromUtf8Error) -> Self {
+        ApiError::Utf8Error(value)
+    }
+}
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ApiError::BusinessError { code, message, .. } =>
+                write!(f, "Business Error {}: {}", code, message),
+            ApiError::Utf8Error(e) =>
+                write!(f, "UTF-8 conversion error: {}", e),
+            ApiError::ReqwestError(e) =>
+                write!(f, "HTTP client error: {}", e),
+        }
     }
 }
 

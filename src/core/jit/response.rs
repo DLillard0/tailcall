@@ -47,6 +47,7 @@ impl<Value: Default> Response<Value> {
 
     pub fn with_errors<E: Into<GraphQLError>>(self, errors: Vec<E>) -> Self {
         Self {
+            // TODO: 将 errors 自定义转换为 GraphQLError
             errors: errors.into_iter().map(|e| e.into()).collect(),
             ..self
         }
