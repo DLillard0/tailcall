@@ -180,6 +180,7 @@ impl IRExecutor for ConstValueExec<'_> {
                     if self.plan.field_is_part_of_value(field, value) {
                         iter.next().unwrap_or(Err(ir::Error::IO(
                             "Expected value to be present".to_string(),
+                            None
                         )
                         .into()))
                     } else {

@@ -3,14 +3,22 @@ use std::sync::Arc;
 
 use async_graphql::Value as ConstValue;
 use derive_more::From;
+use http::StatusCode;
 use thiserror::Error;
+use serde_json;
 
 use crate::core::jit::graphql_error::{Error as ExtensionError, ErrorExtensions};
 use crate::core::{auth, cache, worker, Errata};
 
+#[derive(Debug, Clone)]
+pub struct IOErrorExtensions {
+    pub status: StatusCode,
+    pub body: String,
+}
+
 #[derive(From, Debug, Error, Clone)]
 pub enum Error {
-    IO(String),
+    IO(String, Option<IOErrorExtensions>),
 
     GRPC {
         grpc_code: i32,
@@ -46,7 +54,7 @@ impl Display for Error {
 impl From<Error> for Errata {
     fn from(value: Error) -> Self {
         match value {
-            Error::IO(message) => Errata::new("IOException").description(message),
+            Error::IO(message, _) => Errata::new("IOException").description(message),
             Error::GRPC {
                 grpc_code,
                 grpc_description,
@@ -74,19 +82,27 @@ impl From<Error> for Errata {
 
 impl ErrorExtensions for Error {
     fn extend(&self) -> ExtensionError {
-        ExtensionError::new(format!("{}", self)).extend_with(|_err, e| {
-            if let Error::GRPC {
+        ExtensionError::new(format!("{}", self)).extend_with(|_err, e| match self {
+            Error::GRPC {
                 grpc_code,
                 grpc_description,
                 grpc_status_message,
                 grpc_status_details,
-            } = self
-            {
+            } => {
                 e.set("grpcCode", *grpc_code);
                 e.set("grpcDescription", grpc_description);
                 e.set("grpcStatusMessage", grpc_status_message);
                 e.set("grpcStatusDetails", grpc_status_details.clone());
             }
+            Error::IO(_, Some(extensions)) => {
+                e.set("status", extensions.status.as_u16());
+                let body_value = match serde_json::from_str::<serde_json::Value>(&extensions.body) {
+                    Ok(json_value) => ConstValue::from_json(json_value).unwrap_or(extensions.body.clone().into()),
+                    Err(_) => extensions.body.clone().into(),
+                };
+                e.set("body", body_value);
+            }
+            _ => {}
         })
     }
 }
@@ -107,7 +123,7 @@ impl From<Arc<anyhow::Error>> for Error {
     fn from(error: Arc<anyhow::Error>) -> Self {
         match error.downcast_ref::<Error>() {
             Some(err) => err.clone(),
-            None => Error::IO(error.to_string()),
+            None => Error::IO(error.to_string(), None),
         }
     }
 }
@@ -119,7 +135,7 @@ impl From<anyhow::Error> for Error {
     fn from(value: anyhow::Error) -> Self {
         match value.downcast::<Error>() {
             Ok(err) => err,
-            Err(err) => Error::IO(err.to_string()),
+            Err(err) => Error::IO(err.to_string(), None),
         }
     }
 }
