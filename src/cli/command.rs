@@ -47,6 +47,14 @@ pub enum Command {
         #[arg(short, long)]
         schema: bool,
 
+        /// Display SDL
+        #[arg(long)]
+        sdl: bool,
+
+        /// Output to a file
+        #[arg(short, long)]
+        output: Option<String>,
+
         /// Controls SSL/TLS certificate verification for remote config files
         /// Set to false to skip certificate verification (not recommended for
         /// production)

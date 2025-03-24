@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use super::helpers::{display_schema, log_endpoint_set};
 use crate::cli::fmt::Fmt;
+use crate::cli::tc::helpers::display_sdl;
 use crate::core::blueprint::Blueprint;
 use crate::core::config::reader::ConfigReader;
 use crate::core::runtime::TargetRuntime;
@@ -12,10 +13,12 @@ pub(super) struct CheckParams {
     pub(super) n_plus_one_queries: bool,
     pub(super) schema: bool,
     pub(super) runtime: TargetRuntime,
+    pub(super) sdl: bool,
+    pub(super) output: Option<String>,
 }
 
 pub(super) async fn check_command(params: CheckParams, config_reader: &ConfigReader) -> Result<()> {
-    let CheckParams { file_paths, n_plus_one_queries, schema, runtime } = params;
+    let CheckParams { file_paths, n_plus_one_queries, schema, runtime, sdl, output } = params;
 
     let config_module = (config_reader.read_all(&file_paths)).await?;
     log_endpoint_set(&config_module.extensions().endpoint_set);
@@ -30,10 +33,17 @@ pub(super) async fn check_command(params: CheckParams, config_reader: &ConfigRea
                 .extensions()
                 .endpoint_set
                 .clone()
-                .into_checked(&blueprint, runtime)
+                .into_checked(&blueprint, runtime.clone())
                 .await?;
-            if schema {
-                display_schema(&blueprint);
+            let sdl = if schema {
+                display_schema(&blueprint)
+            } else if sdl {
+                display_sdl(&blueprint)
+            } else {
+                String::new()
+            };
+            if let Some(output) = output {
+                runtime.file.write(&output, sdl.as_bytes()).await?;
             }
 
             Ok(())
