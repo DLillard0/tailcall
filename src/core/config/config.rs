@@ -17,7 +17,7 @@ use super::directive::Directive;
 use super::from_document::from_document;
 use super::{
     AddField, Alias, Cache, Call, Discriminate, Expr, GraphQL, Grpc, Http, Link, Modify, Omit,
-    Protected, ResolverSet, Server, Telemetry, Upstream, JS,
+    Port, Protected, ResolverSet, Server, Telemetry, Upstream, JS,
 };
 use crate::core::config::npo::QueryPath;
 use crate::core::config::source::Source;
@@ -378,7 +378,11 @@ impl Config {
     }
 
     pub fn port(&self) -> u16 {
-        self.server.port.unwrap_or(8000)
+        match &self.server.port {
+            Some(Port::Numeric(port)) => *port,
+            Some(Port::String(port)) => port.parse().unwrap_or(8000),
+            None => 8000,
+        }
     }
 
     pub fn find_type(&self, name: &str) -> Option<&Type> {

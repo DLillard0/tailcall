@@ -10,6 +10,13 @@ use crate::core::config::{merge_key_value_vecs, KeyValue};
 use crate::core::is_default;
 use crate::core::macros::MergeRight;
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, MergeRight, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum Port {
+    Numeric(u16),
+    String(String),
+}
+
 #[derive(
     Serialize,
     Deserialize,
@@ -78,7 +85,7 @@ pub struct Server {
 
     #[serde(default, skip_serializing_if = "is_default")]
     /// `port` sets the Tailcall running port. @default `8000`.
-    pub port: Option<u16>,
+    pub port: Option<Port>,
 
     #[serde(default, skip_serializing_if = "is_default")]
     /// `queryValidation` checks incoming GraphQL queries against the schema,
@@ -192,7 +199,11 @@ impl Server {
     }
 
     pub fn get_port(&self) -> u16 {
-        self.port.unwrap_or(8000)
+        match &self.port {
+            Some(Port::Numeric(port)) => *port,
+            Some(Port::String(port)) => port.parse().unwrap_or(8000),
+            None => 8000,
+        }
     }
     pub fn enable_http_validation(&self) -> bool {
         self.response_validation.unwrap_or(false)
