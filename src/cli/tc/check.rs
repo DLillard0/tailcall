@@ -35,7 +35,7 @@ pub(super) async fn check_command(params: CheckParams, config_reader: &ConfigRea
                 .clone()
                 .into_checked(&blueprint, runtime.clone())
                 .await?;
-            let sdl = if schema {
+            let res = if schema {
                 display_schema(&blueprint)
             } else if sdl {
                 display_sdl(&blueprint)
@@ -43,7 +43,7 @@ pub(super) async fn check_command(params: CheckParams, config_reader: &ConfigRea
                 String::new()
             };
             if let Some(output) = output {
-                runtime.file.write(&output, sdl.as_bytes()).await?;
+                runtime.file.write(&output, res.as_bytes()).await?;
             }
 
             Ok(())
