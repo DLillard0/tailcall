@@ -19,19 +19,24 @@ impl Mustache {
 }
 
 fn parse_name(input: &str) -> IResult<&str, String> {
-    let spaces = nom::character::complete::multispace0;
+    let spaces = nom::character::complete::multispace0::<&str, nom::error::Error<&str>>;
     let alpha = nom::character::complete::alpha1;
     let alphanumeric_or_underscore = nom::multi::many0(nom::branch::alt((
         nom::character::complete::alphanumeric1,
         nom::bytes::complete::tag("_"),
     )));
+    let digit = nom::character::complete::digit1;
 
     let parser = nom::sequence::tuple((spaces, alpha, alphanumeric_or_underscore, spaces));
+    let digit_parser = nom::sequence::tuple((spaces, digit, spaces));
 
-    nom::combinator::map(parser, |(_, a, b, _)| {
-        let b: String = b.into_iter().collect();
-        format!("{}{}", a, b)
-    })(input)
+    nom::branch::alt((
+        nom::combinator::map(parser, |(_, a, b, _)| {
+            let b: String = b.into_iter().collect();
+            format!("{}{}", a, b)
+        }),
+        nom::combinator::map(digit_parser, |(_, digits, _)| digits.to_string()),
+    ))(input)
 }
 
 fn parse_expression(input: &str) -> IResult<&str, Segment> {
