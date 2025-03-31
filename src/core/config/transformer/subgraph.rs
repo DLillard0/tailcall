@@ -114,7 +114,11 @@ impl Transform for Subgraph {
 
         if !resolver_by_type.is_empty() {
             let entity_union = Union {
-                types: resolver_by_type.keys().cloned().collect(),
+                types: resolver_by_type
+                    .keys()
+                    .filter(|&type_name| !config.interfaces_types_map().contains_key(type_name))
+                    .cloned()
+                    .collect(),
                 ..Default::default()
             };
 
