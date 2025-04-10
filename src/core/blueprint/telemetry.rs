@@ -15,6 +15,7 @@ use crate::core::try_fold::TryFold;
 pub struct OtlpExporter {
     pub url: Url,
     pub headers: HeaderMap,
+    pub service_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +68,13 @@ pub fn to_opentelemetry<'a>() -> TryFold<'a, ConfigModule, Telemetry, BlueprintE
                 }
                 config::TelemetryExporter::Otlp(config) => to_url(&config.url)
                     .zip(to_headers(config.headers.clone()))
-                    .map(|(url, headers)| TelemetryExporter::Otlp(OtlpExporter { url, headers }))
+                    .map(|(url, headers)| {
+                        TelemetryExporter::Otlp(OtlpExporter {
+                            url,
+                            headers,
+                            service_name: config.service_name.clone(),
+                        })
+                    })
                     .trace("otlp"),
                 config::TelemetryExporter::Prometheus(config) => {
                     Valid::succeed(TelemetryExporter::Prometheus(config.clone()))
