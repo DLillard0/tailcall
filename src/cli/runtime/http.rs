@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use http_cache_reqwest::{Cache, CacheMode, HttpCache, HttpCacheOptions};
 use hyper::body::Bytes;
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::Counter;
+use opentelemetry::metrics::{Counter, Histogram, Unit};
 use opentelemetry::trace::SpanKind;
 use opentelemetry::KeyValue;
 use opentelemetry_http::HeaderInjector;
@@ -31,6 +31,16 @@ static HTTP_CLIENT_REQUEST_COUNT: Lazy<Counter<u64>> = Lazy::new(|| {
         .init()
 });
 
+static HTTP_CLIENT_REQUEST_DURATION: Lazy<Histogram<f64>> = Lazy::new(|| {
+    let meter = opentelemetry::global::meter("http_request");
+
+    meter
+        .f64_histogram("http.client.request.duration")
+        .with_description("Duration of outgoing requests")
+        .with_unit(Unit::new("ms"))
+        .init()
+});
+
 #[derive(Default)]
 struct RequestCounter {
     attributes: Option<Vec<KeyValue>>,
@@ -51,11 +61,16 @@ impl RequestCounter {
         Self { attributes: Some(attributes) }
     }
 
-    fn update(&mut self, response: &reqwest_middleware::Result<reqwest::Response>) {
+    fn update(
+        &mut self,
+        response: &reqwest_middleware::Result<reqwest::Response>,
+        duration: Duration,
+    ) {
         if let Some(ref mut attributes) = self.attributes {
             attributes.push(get_response_status(response));
-
+            let duration_ms = duration.as_nanos() as f64 / 1000000.0;
             HTTP_CLIENT_REQUEST_COUNT.add(1, attributes);
+            HTTP_CLIENT_REQUEST_DURATION.record(duration_ms, attributes);
         }
     }
 }
@@ -167,10 +182,12 @@ impl HttpIO for NativeHttp {
             request.version()
         );
         tracing::debug!("request: {:?}", request);
+        let start = Instant::now();
         let response = self.client.execute(request).await;
+        let duration = start.elapsed();
         tracing::debug!("response: {:?}", response);
 
-        req_counter.update(&response);
+        req_counter.update(&response, duration);
 
         if self.enable_telemetry {
             let status_code = get_response_status(&response);

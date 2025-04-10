@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Result;
 use async_graphql::ServerError;
@@ -341,6 +342,7 @@ pub async fn handle_request<T: DeserializeOwned + GraphQLRequestLike>(
     telemetry::propagate_context(&req);
     let mut req_counter = RequestCounter::new(&app_ctx.blueprint.telemetry, &req);
 
+    let start = Instant::now();
     let response = if app_ctx.blueprint.server.cors.is_some() {
         handle_request_with_cors::<T>(req, app_ctx, &mut req_counter).await
     } else if let Some(origin) = req.headers().get(&header::ORIGIN) {
@@ -352,8 +354,9 @@ pub async fn handle_request<T: DeserializeOwned + GraphQLRequestLike>(
     } else {
         handle_request_inner::<T>(req, app_ctx, &mut req_counter).await
     };
+    let duration = start.elapsed();
 
-    req_counter.update(&response);
+    req_counter.update(&response, duration);
     if let Ok(response) = &response {
         let status = get_response_status_code(response);
         tracing::Span::current().set_attribute(status.key, status.value);

@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use http::{Request, Response};
 use hyper::Body;
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::Counter;
+use opentelemetry::metrics::{Counter, Histogram, Unit};
 use opentelemetry::KeyValue;
 use opentelemetry_http::HeaderExtractor;
 use opentelemetry_semantic_conventions::trace::{
@@ -18,6 +20,16 @@ static HTTP_SERVER_REQUEST_COUNT: Lazy<Counter<u64>> = Lazy::new(|| {
     meter
         .u64_counter("http.server.request.count")
         .with_description("Number of incoming request handled")
+        .init()
+});
+
+static HTTP_SERVER_REQUEST_DURATION: Lazy<Histogram<f64>> = Lazy::new(|| {
+    let meter = opentelemetry::global::meter("http_request");
+
+    meter
+        .f64_histogram("http.server.request.duration")
+        .with_description("Duration of incoming request handled")
+        .with_unit(Unit::new("ms"))
         .init()
 });
 
@@ -57,12 +69,14 @@ impl RequestCounter {
         }
     }
 
-    pub fn update(self, response: &Result<Response<Body>>) {
+    pub fn update(self, response: &Result<Response<Body>>, duration: Duration) {
         if let Some(mut attributes) = self.attributes {
             if let Ok(response) = response {
                 attributes.push(get_response_status_code(response))
             }
             HTTP_SERVER_REQUEST_COUNT.add(1, &attributes);
+            let duration_ms = duration.as_nanos() as f64 / 1000000.0;
+            HTTP_SERVER_REQUEST_DURATION.record(duration_ms, &attributes);
         }
     }
 }
