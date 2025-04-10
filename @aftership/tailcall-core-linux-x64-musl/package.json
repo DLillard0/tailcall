@@ -20,7 +20,7 @@
     "edge"
   ],
   "name": "@aftership/tailcall-core-linux-x64-musl",
-  "version": "v0.0.9",
+  "version": "v0.0.10",
   "bin": {
     "tailcall": "./bin/tailcall"
   },
