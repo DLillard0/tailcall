@@ -7,10 +7,11 @@ use async_graphql::{Name, Positioned};
 use async_graphql_value::ConstValue;
 use tailcall_valid::Validator;
 
-use super::blueprint;
 use super::directive::{to_const_directive, Directive};
+use super::{blueprint, ScalarTypeDefinition};
 use crate::core::blueprint::{Blueprint, Definition};
 use crate::core::pos;
+use crate::core::scalar::CUSTOM_SCALARS;
 
 fn to_directives(directives: &[Directive]) -> Vec<Positioned<ConstDirective>> {
     directives
@@ -145,6 +146,20 @@ impl From<&Blueprint> for ServiceDocument {
         for def in &blueprint.definitions {
             definitions.push(to_definition(def))
         }
+
+        CUSTOM_SCALARS
+            .iter()
+            .map(|(name, scalar)| {
+                Definition::Scalar(ScalarTypeDefinition {
+                    name: name.to_string(),
+                    description: None,
+                    directives: Vec::new(),
+                    scalar: scalar.clone(),
+                })
+            })
+            .for_each(|def| {
+                definitions.push(to_definition(&def));
+            });
 
         Self { definitions }
     }
