@@ -1,6 +1,6 @@
 const optionalDependencies = {
-  "@aftership/tailcall-core-linux-x64-musl": "v0.0.10",
-  "@aftership/tailcall-core-darwin-arm64": "v0.0.10",
+  "@aftership/tailcall-core-linux-x64-musl": "v0.0.11",
+  "@aftership/tailcall-core-darwin-arm64": "v0.0.11",
 }
 const os = process.platform
 const arch = process.arch

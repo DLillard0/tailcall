@@ -21,10 +21,10 @@
   ],
   "name": "@aftership/tailcall",
   "type": "module",
-  "version": "v0.0.10",
+  "version": "v0.0.11",
   "optionalDependencies": {
-    "@aftership/tailcall-core-linux-x64-musl": "v0.0.10",
-    "@aftership/tailcall-core-darwin-arm64": "v0.0.10"
+    "@aftership/tailcall-core-linux-x64-musl": "v0.0.11",
+    "@aftership/tailcall-core-darwin-arm64": "v0.0.11"
   },
   "scarfSettings": {
     "defaultOptIn": true,
